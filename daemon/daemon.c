@@ -61,6 +61,10 @@ int main(int argc, char *argv[]){
 	close(0);
 	close(1);
 	close(2);
+	// On program startup, the integer file descriptors associated with the streams stdin, stdout, and stderr are 0, 1, and 2, respectively.
+	// close standard output and input and error file descriptors.
+	// 프로그램 시작시에 파일 디스크립터로부터 영향을 받지 않기위해서 close시킴
+
 
 	// 새로운 세션 부여
 	setsid();
