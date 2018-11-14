@@ -12,6 +12,26 @@
 #include <sys/wait.h> // wait
 #include <string.h>
 
+int work(){
+	FILE *fp;
+	unsigned long count = 0;
+
+	fp = fopen("./daemon.out", "wt");
+	if(fp == NULL){
+		printf("file open error\n");
+		return -1;
+	}
+
+	while(1){
+		sleep(1); // 1초씩 카운트를 증가시켜 파일에 적기 위함.
+		fprintf(fp, "%lu\n", count);
+		fflush(fp);
+		fprintf(stdout, "%lu\n", count++);
+	}
+	fclose(fp);
+	return 0;
+}
+
 int main(int argc, char *argv[]){
 	int pid;
 	int ret;
@@ -42,13 +62,8 @@ int main(int argc, char *argv[]){
 	close(1);
 	close(2);
 
-	// 실행위치를 홈 디렉토리로 변경
-	chdir("~");
-
 	// 새로운 세션 부여
 	setsid();
-
-	int cnt = 0;
 
 	// 반복 실행이 필요한 코드면 while문 안에 삽입
 	while(1){
@@ -61,7 +76,7 @@ int main(int argc, char *argv[]){
 			wait(&ret);
 		}
 
-		// 10초 마다 체크
-		sleep(10);
 	}
+	work();
+	return 0;
 }
