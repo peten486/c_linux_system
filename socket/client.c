@@ -38,11 +38,11 @@ int main(int argc,char **argv){
         bzero( len, MAX_SIZE);
         
         fgets(sendline,MAX_SIZE,stdin); /*stdin = 0 , for standard input */
+        sendline[strlen(sendline)-1] = '\0';
         sprintf(len, "%d", (int)strlen(sendline));
         write(sockfd,len,4);
-        printf("size : %d\n", 4);
-        write(sockfd,sendline,strlen(sendline)+1);
-        sendline[strlen(sendline)-1] = '\0';
+        printf("size : %s\n", len);
+        write(sockfd,sendline,strlen(sendline));
         if(!strcmp(sendline, "quit")){
             close(sockfd);
             break;

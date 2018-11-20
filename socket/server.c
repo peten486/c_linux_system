@@ -62,63 +62,66 @@ int main(){
          printf("Accept IP : %s, Port : %u\n", inet_ntoa(client_addr.sin_addr),(unsigned)ntohs(client_addr.sin_port));
       
          if(is_nonblock(comm_fd) != 0 && set_nonblock(comm_fd)){
-                           perror("2 : set_nonblock fail");
-                           exit(1);
-                   }
+            perror("2 : set_nonblock fail");
+            exit(1);
+        } else {
          printf("non block ... ok\n");
+         break;
+        }
       } else if(errno == EAGAIN ){
          continue;   
       } else {
          perror("accept fail");
    //      exit(1);   
       }
-      
-      while(1){
-         //printf("들어감");
-         int msg_byte = 0;
-         bzero(str, MAX_SIZE);
-         //msg_byte = get_recv(0, P_SIZE, comm_fd, str);
-         
-         n_byte = recv(comm_fd, str, 4, 0);
-         if(n_byte == -1 && errno == EWOULDBLOCK){
-            continue;
-         } else {
+    }
 
-            printf("size : %s\n", str);
-            msg_byte = atol(str);  
-
+    while(1){
+        int msg_byte = 0;
+        while(1){
+            msg_byte = 0;
+            n_byte = -1;
+            bzero(str, MAX_SIZE);
+            n_byte = recv(comm_fd, str, P_SIZE, 0);
+            if(n_byte == -1){
+                if(errno == EWOULDBLOCK) continue;
+            } else {
+                break;
+            } 
+        }
+        printf("size : %s\n", str);
+        msg_byte = atol(str);
+        while(1){
+            n_byte = -1;
+            bzero(str, MAX_SIZE);
             n_byte = recv(comm_fd, str, msg_byte, 0);
-            printf("nbyte : %d\n", n_byte);
             if(n_byte == -1 && errno == EWOULDBLOCK){
-               continue;
-            }   
-         }
-         //msg_byte = get_recv(0, P_SIZE, comm_fd, str);
-      //   msg_byte = atol(str);
-         //if(msg_byte == -1){
-         //   continue;
-      //   }
-         //printf("msg size : %d\n", msg_byte);
-         //bzero(str, msg_byte);
-      
-         //n_byte = get_recv(1, msg_byte, comm_fd, str);   
-         //if(n_byte == -1){
-         //   continue;
-         //}
+                continue;
+            } else { 
 
-         if(!strcmp(str, "quit")){
+                printf("recv size : %d, ", n_byte);
+                printf("recv data : %s\n", str);
+                
+                break;               
+            }
+              
+        }
+    
+        if(!strcmp(str, "quit")){
+            printf("quit??\n");
             close(comm_fd);
+            n_byte = -1;
             continue;
          }
    
-         printf("recv : %s\n", str);   
+         //printf("recv : %s\n", str);   
          printf("Echoing back - %s",str);                 
       
          if(0 != send(comm_fd, str, strlen(str)+1, 0)){
             //break;
          }
+
       }
-   }
    close(listen_fd);
 }
 
