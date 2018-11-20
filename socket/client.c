@@ -5,35 +5,50 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <stdlib.h>
+
+#define MAX_SIZE 100
+#define PORT 5400
  
-int main(int argc,char **argv)
-{
+int main(int argc,char **argv){
     int sockfd,n;
-    char sendline[100];
-    char recvline[100];
+    char sendline[MAX_SIZE];
+    char recvline[MAX_SIZE];
+    char len[MAX_SIZE];
+
     struct sockaddr_in servaddr;
  
     sockfd=socket(AF_INET,SOCK_STREAM,0);
     bzero(&servaddr,sizeof servaddr);
  
     servaddr.sin_family=AF_INET;
-    servaddr.sin_port=htons(22000);
+    servaddr.sin_port=htons(PORT);
  
     inet_pton(AF_INET,"127.0.0.1",&(servaddr.sin_addr));
  
-    connect(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr));
- 
-    while(1)
-    {
-        bzero( sendline, 100);
-        bzero( recvline, 100);
-        fgets(sendline,100,stdin); /*stdin = 0 , for standard input */
- 		if(!strcmp(sendline,"q\n")){
-        	close(sockfd);
-        	break;
-        }
+    int cc = connect(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr));
+    if(cc < 0){
+        printf("err");
+        close(1);
+    }
+
+    while(1){
+        bzero( sendline, MAX_SIZE);
+        bzero( recvline, MAX_SIZE);
+        bzero( len, MAX_SIZE);
+        
+        fgets(sendline,MAX_SIZE,stdin); /*stdin = 0 , for standard input */
+        sprintf(len, "%d", (int)strlen(sendline));
+        write(sockfd,len,4);
+        printf("size : %d\n", 4);
         write(sockfd,sendline,strlen(sendline)+1);
-        read(sockfd,recvline,100);
+        sendline[strlen(sendline)-1] = '\0';
+        if(!strcmp(sendline, "quit")){
+            close(sockfd);
+            break;
+        }
+       
+        read(sockfd,recvline,MAX_SIZE);
         printf("%s",recvline);
     }
  
