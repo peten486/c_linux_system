@@ -1,3 +1,7 @@
+﻿// client.c
+// 정재화
+// 2018-11-21
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -36,12 +40,13 @@ int main(int argc,char **argv){
         bzero( sendline, MAX_SIZE);
         bzero( recvline, MAX_SIZE);
         bzero( len, MAX_SIZE);
-        
+       
+	printf("msg : "); 
         fgets(sendline,MAX_SIZE,stdin); /*stdin = 0 , for standard input */
         sendline[strlen(sendline)-1] = '\0';
         sprintf(len, "%d", (int)strlen(sendline));
         write(sockfd,len,4);
-        printf("size : %s\n", len);
+        printf("msg len : %s\n", len);
         write(sockfd,sendline,strlen(sendline));
         if(!strcmp(sendline, "quit")){
             close(sockfd);
@@ -49,7 +54,7 @@ int main(int argc,char **argv){
         }
        
         read(sockfd,recvline,MAX_SIZE);
-        printf("%s",recvline);
+        printf("echo : %s\n",recvline);
     }
  
 }
