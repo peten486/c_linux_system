@@ -1,9 +1,4 @@
-﻿// server.c
-// 정재화
-// 2018-11-21
-// non_block mode echo server
-
-#include <sys/types.h>
+﻿#include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -58,28 +53,22 @@ int main(){
 
 	while(1){
 
-		while(1){
-			errno = 0;
-			clilen = sizeof(client_addr);
+		errno = 0;
+		clilen = sizeof(client_addr);
 		
-			if((comm_fd = accept(listen_fd, (struct sockaddr*)&client_addr, &clilen))!= -1){
-				printf("Server : client connected\n");
-				printf("Accept Socket = %d\n", comm_fd);
-				printf("Accept IP : %s, Port : %u\n", inet_ntoa(client_addr.sin_addr),(unsigned)ntohs(client_addr.sin_port));
+		if((comm_fd = accept(listen_fd, (struct sockaddr*)&client_addr, &clilen))!= -1){
+			printf("Server : client connected\n");
+			printf("Accept Socket = %d\n", comm_fd);
+			printf("Accept IP : %s, Port : %u\n", inet_ntoa(client_addr.sin_addr),(unsigned)ntohs(client_addr.sin_port));
 		
-				if(is_nonblock(comm_fd) != 0 && set_nonblock(comm_fd)){
-					perror("2 : set_nonblock fail");
-					exit(1);
-				} else {
-					//printf("non block ... ok\n");
-					break;
-				}
-			} else if(errno == EAGAIN ){
-				continue;   
-			} else {
-				perror("accept fail");
-				//exit(1);   
-			}
+			if(is_nonblock(comm_fd) != 0 && set_nonblock(comm_fd)){
+				perror("2 : set_nonblock fail");
+				exit(1);
+			} 
+		} else if(errno == EAGAIN ){
+			continue;   
+		} else {
+			perror("accept fail");
 		}
 	
 		while(1){
@@ -90,7 +79,7 @@ int main(){
 				n_byte = -1;
 				bzero(str, MAX_SIZE);
 				n_byte = recv(comm_fd, str, P_SIZE, 0);
-
+				// 4byte를 먼저 읽어옴 : 받을 메시지의 길이
 				if(n_byte == -1){
 					if(errno == EWOULDBLOCK) continue;
 				} else {
@@ -101,37 +90,22 @@ int main(){
        		 	msg_byte = atol(str);
 			bzero(str, MAX_SIZE);
 	
-			int total = msg_byte;
-			int cur = 0;
-			char temp[2];
 			
 			while(1){
-				bzero(temp, 2);
 				n_byte = -1;
-				//bzero(str, MAX_SIZE);
-				n_byte = recv(comm_fd, temp, 1, 0);
+				n_byte = recv(comm_fd, str, msg_byte, 0);
 		
 				if(n_byte == -1 && errno == EWOULDBLOCK){
 					continue;
 				} else { 
-					//printf("recv size : %d, ", n_byte);
-					printf("recv data : %s", temp);
-
-					if(total > cur){
-						cur += strlen(temp);
-						strcat(str, temp);
-						printf(", cur size : %d, str : %s\n", cur, str);
+					printf("recv data : %s\n", str);
+					printf("Echoing back - %s\n", str);
+					if( 0 != send(comm_fd, str, strlen(str), 0)){
+						break;	
+					} else {
+						perror("sending error");
 					}
-		
-					if(total == cur){
-						printf("Echoing back - %s\n", str);
-						if( 0 != send(comm_fd, str, strlen(str), 0)){
-							break;	
-						} else {
-							perror("sending error");
-						}
-						break;
-					}
+					break;
 				}
 			}
     
