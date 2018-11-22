@@ -80,7 +80,7 @@ int main(){
 		}
 	
 		while(1){
-	        	int msg_byte = 0;
+	        int msg_byte = 0;
 
 			while(1){
 				msg_byte = 0;
@@ -94,8 +94,9 @@ int main(){
 					break;
 				} 
 			}
-        		printf("size : %s\n", str);
-       		 	msg_byte = atol(str);
+
+        	printf("size : %s\n", str);
+       		msg_byte = atol(str);
 			bzero(str, MAX_SIZE);
 	
 			
@@ -108,7 +109,8 @@ int main(){
 				} else { 
 					printf("recv data : %s\n", str);
 					printf("Echoing back - %s\n", str);
-					if( 0 != send(comm_fd, str, strlen(str), 0)){
+					if( 0 < send_nonblock(comm_fd, str, strlen(str), 0)){
+						printf("sending!\n");
 						break;	
 					} else {
 						perror("sending error");
@@ -157,7 +159,7 @@ int send_nonblock(int fd, void* data, size_t size, int flags){
 			case EAGAIN:
 				FD_ZERO(&wset);
 				FD_SET(fd, &wset);
-				timeout.tv_sec = MAX_IDLE_SECS;
+				timeout.tv_sec = 0;
 				timeout.tv_usec = MAX_IDLE_SECS;
 				i = select(fd, NULL, &wset, NULL, &timeout);
 				if(i < 0){
@@ -172,36 +174,50 @@ int send_nonblock(int fd, void* data, size_t size, int flags){
 				return -1;
 		}
 	}
+	return n;
 }
 
-int recv_nonblock(int fd, void* buffer, size_t size, int flags){
-	fd_set rset;
-	struct timeval timeout;
-	int n, i;
 
-	n = recv(fd, buffer, size, flags);
-	int err = errno;
-	if(n < 0){
-		switch(err){
-			case EINTR: return 0;
-			case EAGAIN:
-				FD_ZERO(&rset);
-				FD_SET(fd, &rset);
-				timeout.tv_sec = MAX_IDLE_SECS;
-				timeout.tv_usec = MAX_IDLE_SECS;
-				i = select(fd, &rset, NULL, NULL,&timeout);
-				if(i < 0){
-					perror("ERROR in recv_nonblock");
-					return 0;
-				} else {
-					if(i == 0){
-						return 0;
-					}
-				}
-				break;
-			default:
-				perror("ERROR in recv_nonblock");
-				return -1;
-		}
-	}
+int recv_nonblock(int fd, void* buffer, size_t size, int flags){
+        fd_set rset;
+        struct timeval timeout;
+        int n, i;
+
+	    n = recv(fd, buffer, size, flags);
+	    int err = errno;
+	    while(1){ 
+	    if(n > 0){ break; }
+	    if(n < 0){
+	            switch(err){
+	                        case EINTR: 
+								printf("1 : %d, err : %d\n", n, err);
+	                        	continue;
+	                        case EAGAIN:
+	                            printf("2 : %d, err : %d\n", n, err);
+	                                FD_ZERO(&rset);
+	                                FD_SET(fd, &rset);
+	                                timeout.tv_sec = 0;
+	                                timeout.tv_usec = MAX_IDLE_SECS;
+	                                i = select(fd, &rset, NULL, NULL,&timeout);
+	                                if(i < 0){
+	                                        perror("ERROR in recv_nonblock");
+	                                        continue;
+	                                        //return 0;
+	                                } else {
+	                                        if(i == 0){
+	                                                continue;
+	                                                //return 0;
+	                                        }
+	                                }
+	                                break;
+	                        default:
+		                        printf("3 :%d, err : %d\n", n, err);
+	                                perror("ERROR in recv_nonblock");
+	                                continue;
+	                               break;
+	                }
+
+	        }
+	    }
+        return n;
 }

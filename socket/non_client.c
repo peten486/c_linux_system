@@ -12,7 +12,7 @@
 
 #define MAX_SIZE 100
 #define PORT 5400
-#define MAX_IDLE_SECS 45
+#define MAX_IDLE_SECS 5
 
 
 int set_nonblock(int sockfd);
@@ -47,6 +47,12 @@ int main(int argc,char **argv){
 
 //	int cc = socket_connect(sockfd,(struct sockaddr *)&servaddr);
 	int cc = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	if(is_nonblock(sockfd) != 0){
+		perror("set nonblock fail");
+		exit(1);
+	} else {
+		printf("nonblock ok\n");
+	}
 
 	while(1){
 		bzero( sendline, MAX_SIZE);
@@ -105,7 +111,7 @@ int send_nonblock(int fd, void* data, size_t size, int flags){
                         case EAGAIN:
                                 FD_ZERO(&wset);
                                 FD_SET(fd, &wset);
-                                timeout.tv_sec = MAX_IDLE_SECS;
+                                timeout.tv_sec = 0;
                                 timeout.tv_usec = MAX_IDLE_SECS;
                                 i = select(fd, NULL, &wset, NULL, &timeout);
                                 if(i < 0){
@@ -120,6 +126,7 @@ int send_nonblock(int fd, void* data, size_t size, int flags){
                                 return -1;
                 }
         }
+        return n;
 }
 
 
@@ -128,31 +135,44 @@ int recv_nonblock(int fd, void* buffer, size_t size, int flags){
         struct timeval timeout;
         int n, i;
 
-        n = recv(fd, buffer, size, flags);
-        int err = errno;
-        if(n < 0){
-                switch(err){
-                        case EINTR: return 0;
-                        case EAGAIN:
-                                FD_ZERO(&rset);
-                                FD_SET(fd, &rset);
-                                timeout.tv_sec = MAX_IDLE_SECS;
-                                timeout.tv_usec = MAX_IDLE_SECS;
-                                i = select(fd, &rset, NULL, NULL,&timeout);
-                                if(i < 0){
-                                        perror("ERROR in recv_nonblock");
-                                        return 0;
-                                } else {
-                                        if(i == 0){
-                                                return 0;
-                                        }
-                                }
-                                break;
-                        default:
-                                perror("ERROR in recv_nonblock");
-                                return -1;
-                }
-        }
+        while(1){
+	        n = recv(fd, buffer, size, flags);
+	        int err = errno;
+	        
+	        if(n > 0){ break; }
+	        if(n < 0){
+	                switch(err){
+	                        case EINTR: 
+								printf("1 : %d, err : %d\n", n, err);
+	                        	continue;
+	                        case EAGAIN:
+	                            printf("2 : %d, err : %d\n", n, err);
+	                                FD_ZERO(&rset);
+	                                FD_SET(fd, &rset);
+	                                timeout.tv_sec = 0;
+	                                timeout.tv_usec = MAX_IDLE_SECS;
+	                                i = select(fd, &rset, NULL, NULL,&timeout);
+	                                if(i < 0){
+	                                        perror("ERROR in recv_nonblock");
+	                                        continue;
+	                                        //return 0;
+	                                } else {
+	                                        if(i == 0){
+	                                                continue;
+	                                                //return 0;
+	                                        }
+	                                }
+	                                break;
+	                        default:
+		                        printf("3 :%d, err : %d\n", n, err);
+	                                perror("ERROR in recv_nonblock");
+	                                continue;
+	                               break;
+	                }
+
+	        }
+	    }
+        return n;
 }
 
 
@@ -174,11 +194,11 @@ int socket_connect(int fd, struct sockaddr* servaddr){
 				case EAGAIN:
 					FD_ZERO(&rset);
 					FD_SET(fd, &rset);
-					timeout.tv_sec = MAX_IDLE_SECS;
+					timeout.tv_sec = 0;
 					timeout.tv_usec = MAX_IDLE_SECS;
 					i = select(fd, &rset, NULL, NULL, &timeout);
 					if(i < 0){
-						perror("error is connect non block");
+						perror(" 1: error is connect non block");
 				//		return -1;
 						continue;
 					} else {
@@ -189,7 +209,7 @@ int socket_connect(int fd, struct sockaddr* servaddr){
 					}
 					break;	
 				default:
-					perror("error is connect non block");
+					perror("2 : error is connect non block");
 					return -1;
 			}
 			continue;
