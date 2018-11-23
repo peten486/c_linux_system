@@ -19,8 +19,7 @@ int set_nonblock(int sockfd);
 int is_nonblock(int sockfd);
 int send_nonblock(int fd, void* data, size_t size, int flags);
 int recv_nonblock(int fd, void* buffer, size_t size, int flags);
-int socket_connect(int fd, struct sockaddr* servaddr);
- 
+
 int main(int argc,char **argv){
 	int sockfd,n;
 	char sendline[MAX_SIZE];
@@ -43,39 +42,37 @@ int main(int argc,char **argv){
 		perror("set_nonblock fail");
 		exit(1);
 	}
-	
 
-//	int cc = socket_connect(sockfd,(struct sockaddr *)&servaddr);
 	int cc = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 	if(is_nonblock(sockfd) != 0){
 		perror("set nonblock fail");
 		exit(1);
 	} else {
-		printf("nonblock ok\n");
+//		printf("nonblock ok\n");
 	}
 
+	// 1.  connect error - PROGRESS , 
+	// 2. select() , timeout ( 500msec, 2초간 )
+	// 3. while() {/woking .../}  <-- 연결끊어짐.. -> Reconnect
 	while(1){
 		bzero( sendline, MAX_SIZE);
 		bzero( recvline, MAX_SIZE);
 		bzero( len, MAX_SIZE);
 
-		printf("msg : "); 
-		fgets(sendline,MAX_SIZE,stdin); /*stdin = 0 , for standard input */
+		printf("send msg : "); 
+		fgets(sendline,MAX_SIZE,stdin);
 		sendline[strlen(sendline)-1] = '\0';
 		sprintf(len, "%d", (int)strlen(sendline));
 		
 		send_nonblock(sockfd, len, 4, 0);
-//		write(sockfd,len,4);
-		printf("msg len : %s\n", len);
-//		write(sockfd,sendline,strlen(sendline));
+//		printf("msg len : %s\n", len);
 		send_nonblock(sockfd, sendline, strlen(sendline), 0);		
 		if(!strcmp(sendline, "quit")){
 			close(sockfd);
 			break;
 		}
 		recv_nonblock(sockfd, recvline, MAX_SIZE, 0);
-//		read(sockfd,recvline,MAX_SIZE);
-		printf("echo : %s\n",recvline);
+		printf("echo msg : %s\n",recvline);
 	}
 }
 
@@ -97,125 +94,68 @@ int set_nonblock(int sockfd) {
     return 0;
 }
 
-
-int send_nonblock(int fd, void* data, size_t size, int flags){
-        fd_set wset;
-        struct timeval timeout;
-        int n, i, err;
-
-        n = send(fd, data, size, flags);
-        err = errno;
-        if(n < 0){
-                switch(err){
-                        case EINTR: return 0;
-                        case EAGAIN:
-                                FD_ZERO(&wset);
-                                FD_SET(fd, &wset);
-                                timeout.tv_sec = 0;
-                                timeout.tv_usec = MAX_IDLE_SECS;
-                                i = select(fd, NULL, &wset, NULL, &timeout);
-                                if(i < 0){
-                                        perror("ERROR in send_nonblock");
-                                        return 0;
-                                } else {
-                                        if(i == 0) return 0;
-                                }
-                                break;
-                        default:
-                                perror("ERROR in send_nonblock");
-                                return -1;
-                }
-        }
-        return n;
-}
-
-
 int recv_nonblock(int fd, void* buffer, size_t size, int flags){
-        fd_set rset;
-        struct timeval timeout;
-        int n, i;
-
-        while(1){
-	        n = recv(fd, buffer, size, flags);
-	        int err = errno;
-	        
-	        if(n > 0){ break; }
-	        if(n < 0){
-	                switch(err){
-	                        case EINTR: 
-								printf("1 : %d, err : %d\n", n, err);
-	                        	continue;
-	                        case EAGAIN:
-	                            printf("2 : %d, err : %d\n", n, err);
-	                                FD_ZERO(&rset);
-	                                FD_SET(fd, &rset);
-	                                timeout.tv_sec = 0;
-	                                timeout.tv_usec = MAX_IDLE_SECS;
-	                                i = select(fd, &rset, NULL, NULL,&timeout);
-	                                if(i < 0){
-	                                        perror("ERROR in recv_nonblock");
-	                                        continue;
-	                                        //return 0;
-	                                } else {
-	                                        if(i == 0){
-	                                                continue;
-	                                                //return 0;
-	                                        }
-	                                }
-	                                break;
-	                        default:
-		                        printf("3 :%d, err : %d\n", n, err);
-	                                perror("ERROR in recv_nonblock");
-	                                continue;
-	                               break;
-	                }
-
-	        }
-	    }
-        return n;
-}
-
-
-
-
-int socket_connect(int fd, struct sockaddr* servaddr){
-	int conn = 0;
-	fd_set rset;
+	fd_set readfds;
 	struct timeval timeout;
-	int n, i;
-
+	int n, i, state, err;
+	
 	while(1){
-		conn = connect(fd, (struct sockaddr *)&servaddr, sizeof(servaddr));
-		int err = errno;
-		if(conn == -1){
-		//	perror("connect err");
+		FD_ZERO(&readfds);
+		FD_SET(fd, &readfds);
+		timeout.tv_sec = 0;
+		timeout.tv_usec = MAX_IDLE_SECS;
+		state = select(fd+1, &readfds, NULL, NULL, &timeout);
+		if(state == -1){
+			perror("recv_nonblock() select error : ");
+			exit(0);
+			break;
+		} else {
+			err = errno;
 			switch(err){
-				case EINPROGRESS:
+	//			case EWOULDBLOCK:
 				case EAGAIN:
-					FD_ZERO(&rset);
-					FD_SET(fd, &rset);
-					timeout.tv_sec = 0;
-					timeout.tv_usec = MAX_IDLE_SECS;
-					i = select(fd, &rset, NULL, NULL, &timeout);
-					if(i < 0){
-						perror(" 1: error is connect non block");
-				//		return -1;
-						continue;
-					} else {
-						if(i == 0){
-							//return 0;
-							continue;
+				default:
+					if(FD_ISSET(fd, &readfds)){
+						while((n = recv(fd, buffer, size, flags)) > 0){
+							return n;
 						}
 					}
-					break;	
-				default:
-					perror("2 : error is connect non block");
-					return -1;
+					break;
 			}
-			continue;
-		} else if( conn > 0){
-			break;
 		}
 	}
-	return conn;
+	return n;
+}
+
+int send_nonblock(int fd, void* data, size_t size, int flags){
+	fd_set sendfds;
+	struct timeval timeout;
+	int n, i, err, state;
+	
+	while(1){
+		FD_ZERO(&sendfds);
+		FD_SET(fd, &sendfds);
+		timeout.tv_sec = 0;
+		timeout.tv_usec = MAX_IDLE_SECS;
+		state = select(fd+1, NULL, &sendfds, NULL, &timeout);
+		if(state == -1){
+			perror("send_nonblock() select error : ");
+			exit(0);
+			break;
+		} else {
+			err = errno;
+			switch(err){
+	//			case EWOULDBLOCK:
+				case EAGAIN:
+				default:
+					if(FD_ISSET(fd, &sendfds)){
+						while((n = send(fd, data, size, flags)) > 0){
+							return n;
+						}
+					}
+					break;
+			}
+		}
+	}
+	return n;
 }
