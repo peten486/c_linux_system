@@ -18,7 +18,7 @@
 #define MAX_SIZE 100
 #define PORT 5400
 #define P_SIZE 4
-#define MAX_IDLE_SECS 45
+#define MAX_IDLE_SECS 500000
 #define FD_SIZE 10
 
 int set_nonblock(int sockfd);
@@ -38,6 +38,8 @@ int main(){
 	int msg_byte, n_byte;
 	int i, on = 1;
 	int fd_num, maxfd, maxi;
+	struct timeval timeout;
+	
 
 	for(i=0; i<FD_SIZE; i++){
 		client_list[i] = -1;
@@ -75,13 +77,12 @@ int main(){
 
 	FD_ZERO(&readfds);
 	FD_SET(listen_fd, &readfds);
-	
+	timeout.tv_sec = 0;
+	timeout.tv_usec = MAX_IDLE_SECS;
+        
 
 	while(1){
-		struct timeval timeout;
-        	timeout.tv_sec = 0;
-                timeout.tv_usec = MAX_IDLE_SECS;
-         
+		 
 		allfds = readfds;
 		fd_num = select(maxfd + 1, &allfds, (fd_set *)0, (fd_set *)0, &timeout);
 		
@@ -224,33 +225,42 @@ int recv_nonblock(int fd, void* buffer, size_t size, int flags){
 
 
 int send_nonblock(int fd, void* data, size_t size, int flags){
-        fd_set sendfds;
-        struct timeval timeout;
-        int n, i, err, state;
+/*    fd_set sendfds;
+	struct timeval timeout;
+	int n, i, err, state;
 
-        while(1){
-                FD_ZERO(&sendfds);
-                FD_SET(fd, &sendfds);
-                timeout.tv_sec = 0;
-                timeout.tv_usec = MAX_IDLE_SECS;
-                state = select(fd+1, NULL, &sendfds, NULL, &timeout);
-                if(state == -1){
-                        perror("send_nonblock() select error : ");
-                        exit(0);
-                        break;
-                } else {
-                        err = errno;
-                        switch(err){
-                                case EAGAIN:
-                                default:
-                                        if(FD_ISSET(fd, &sendfds)){
-                                                while((n = send(fd, data, size, flags)) > 0){
-                                                        return n;
-                                                }
-                                        }
-                                        break;
-               		 }
+	while(1){
+		FD_ZERO(&sendfds);
+		FD_SET(fd, &sendfds);
+		timeout.tv_sec = 0;
+		timeout.tv_usec = MAX_IDLE_SECS;
+		state = select(fd+1, NULL, &sendfds, NULL, &timeout);
+		if(state == -1){
+			perror("send_nonblock() select error : ");
+			exit(0);
+			break;
+		} else {
+			err = errno;
+			switch(err){
+				//			case EWOULDBLOCK:
+				case EAGAIN:
+				default:
+					if(FD_ISSET(fd, &sendfds)){
+						while((n = send(fd, data, size, flags)) > 0){
+							return n;
+						}
+					}
+					break;
+			}
 		}
-        }
-        return n;
+	}
+*/
+	int n = send(fd, data, size, flags);
+	if(n < 0){
+		perror("send_nonblock error : ");
+		return -1;
+
+	}
+
+	return n;
 }

@@ -12,28 +12,31 @@
 
 #define MAX_SIZE 100
 #define PORT 5400
-#define MAX_IDLE_SECS 5
+#define MAX_IDLE_SECS 500000
 
 
 int set_nonblock(int sockfd);
 int is_nonblock(int sockfd);
 int send_nonblock(int fd, void* data, size_t size, int flags);
 int recv_nonblock(int fd, void* buffer, size_t size, int flags);
+int connect_nonb(int sockfd, struct sockaddr_in saptr, size_t salen);
 
 int main(int argc,char **argv){
-	int sockfd,n;
+	int sockfd, n, errno, cc;
 	char sendline[MAX_SIZE];
 	char recvline[MAX_SIZE];
 	char len[MAX_SIZE];
+	
 
 	struct sockaddr_in servaddr;
+
 	if((sockfd = socket(AF_INET,SOCK_STREAM,0)) == -1){
 		perror("socket fail");
 		exit(1);
 	}
 
 	bzero(&servaddr, sizeof servaddr);
-	
+
 	servaddr.sin_family=AF_INET;
 	servaddr.sin_port=htons(PORT);
 	inet_pton(AF_INET,"127.0.0.1",&(servaddr.sin_addr));
@@ -43,12 +46,16 @@ int main(int argc,char **argv){
 		exit(1);
 	}
 
-	int cc = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	// cc = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	cc = connect_nonb(sockfd, servaddr, sizeof(servaddr));
+	if(cc < 0)
+		return 0;
+
 	if(is_nonblock(sockfd) != 0){
 		perror("set nonblock fail");
 		exit(1);
 	} else {
-//		printf("nonblock ok\n");
+		//		printf("nonblock ok\n");
 	}
 
 	// 1.  connect error - PROGRESS , 
@@ -63,9 +70,9 @@ int main(int argc,char **argv){
 		fgets(sendline,MAX_SIZE,stdin);
 		sendline[strlen(sendline)-1] = '\0';
 		sprintf(len, "%d", (int)strlen(sendline));
-		
+
 		send_nonblock(sockfd, len, 4, 0);
-//		printf("msg len : %s\n", len);
+		//		printf("msg len : %s\n", len);
 		send_nonblock(sockfd, sendline, strlen(sendline), 0);		
 		if(!strcmp(sendline, "quit")){
 			close(sockfd);
@@ -79,26 +86,26 @@ int main(int argc,char **argv){
 
 
 int is_nonblock(int sockfd) {
-    int val;
-    val=fcntl(sockfd, F_GETFL,0);
-    if(val & O_NONBLOCK)
-        return 0;
-    return -1;
+	int val;
+	val=fcntl(sockfd, F_GETFL,0);
+	if(val & O_NONBLOCK)
+		return 0;
+	return -1;
 }
 
 int set_nonblock(int sockfd) {
-    int val;
-    val=fcntl(sockfd, F_GETFL,0);
-    if(fcntl(sockfd, F_SETFL, val | O_NONBLOCK) == -1)
-        return -1;
-    return 0;
+	int val;
+	val=fcntl(sockfd, F_GETFL,0);
+	if(fcntl(sockfd, F_SETFL, val | O_NONBLOCK) == -1)
+		return -1;
+	return 0;
 }
 
 int recv_nonblock(int fd, void* buffer, size_t size, int flags){
 	fd_set readfds;
 	struct timeval timeout;
 	int n, i, state, err;
-	
+
 	while(1){
 		FD_ZERO(&readfds);
 		FD_SET(fd, &readfds);
@@ -112,7 +119,7 @@ int recv_nonblock(int fd, void* buffer, size_t size, int flags){
 		} else {
 			err = errno;
 			switch(err){
-	//			case EWOULDBLOCK:
+				//			case EWOULDBLOCK:
 				case EAGAIN:
 				default:
 					if(FD_ISSET(fd, &readfds)){
@@ -128,10 +135,10 @@ int recv_nonblock(int fd, void* buffer, size_t size, int flags){
 }
 
 int send_nonblock(int fd, void* data, size_t size, int flags){
-	fd_set sendfds;
+/*    fd_set sendfds;
 	struct timeval timeout;
 	int n, i, err, state;
-	
+
 	while(1){
 		FD_ZERO(&sendfds);
 		FD_SET(fd, &sendfds);
@@ -145,7 +152,7 @@ int send_nonblock(int fd, void* data, size_t size, int flags){
 		} else {
 			err = errno;
 			switch(err){
-	//			case EWOULDBLOCK:
+				//			case EWOULDBLOCK:
 				case EAGAIN:
 				default:
 					if(FD_ISSET(fd, &sendfds)){
@@ -157,5 +164,65 @@ int send_nonblock(int fd, void* data, size_t size, int flags){
 			}
 		}
 	}
+*/
+	int n = send(fd, data, size, flags);
+	if(n < 0){
+		perror("send_nonblock error : ");
+		return -1;
+
+	}
 	return n;
+}
+
+
+
+int connect_nonb(int sockfd, struct sockaddr_in saptr, size_t salen){
+	int flags, n, error;
+	socklen_t len;
+	fd_set rset, wset;
+	struct timeval tval;
+
+	flags = fcntl(sockfd, F_GETFL, 0);
+	fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+
+	error = 0;
+	if ( (n = connect(sockfd, (struct sockaddr *)&saptr, salen)) < 0)
+		if (errno != EINPROGRESS)
+			return(-1);
+
+	/* Do whatever we want while the connect is taking place. */
+
+	if (n == 0)
+		goto done;	/* connect completed immediately */
+
+	FD_ZERO(&rset);
+	FD_SET(sockfd, &rset);
+	wset = rset;
+	tval.tv_sec = 0;
+	tval.tv_usec = MAX_IDLE_SECS;
+
+	if ( (n = select(sockfd+1, &rset, &wset, NULL, &tval)) == 0) {
+		close(sockfd);		/* timeout */
+		errno = ETIMEDOUT;
+		return(-1);
+	}
+
+	if (FD_ISSET(sockfd, &rset) || FD_ISSET(sockfd, &wset)) {
+		len = sizeof(error);
+		if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
+			return(-1);			/* Solaris pending error */
+	} else {
+		perror("select error: sockfd not set");
+		exit(-1);
+	}
+
+done:
+	fcntl(sockfd, F_SETFL, flags);	/* restore file status flags */
+
+	if (error) {
+		close(sockfd);		/* just in case */
+		errno = error;
+		return(-1);
+	}
+	return(0);
 }
