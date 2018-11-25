@@ -1,1 +1,1 @@
-Shared Memory(°øÀ¯ ¸Þ¸ð¸®)
+Shared Memory(ê³µìœ ë©”ëª¨ë¦¬)
