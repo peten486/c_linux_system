@@ -1,6 +1,6 @@
 ﻿// server.c
 // 정재화
-// 2018-11-23
+// 2018-11-26
 // non block 모드와 select를 이용한 서버 구현
 
 #include <sys/types.h>
@@ -149,13 +149,11 @@ int main(){
        				msg_byte = atol(str);
 		
 				memset(str, 0x00, MAX_SIZE);
-	
 			
 				n_byte = -1;
 				n_byte = recv_nonblock(sockfd, str, msg_byte, 0);
-		
+				
 				printf("[%d] recv msg : %s\n", i, str);
-		//		printf("[%d] Echoing back - %s\n", i, str);
 
 				if( 0 < send_nonblock(sockfd, str, strlen(str), 0)){
 					printf("[%d] sending!\n", i);
@@ -168,6 +166,7 @@ int main(){
 					printf("socket close() complete\n");
 					break;
 				}
+				
 			}
 		}
 	}
@@ -192,74 +191,37 @@ int set_nonblock(int sockfd) {
 
 
 int recv_nonblock(int fd, void* buffer, size_t size, int flags){
-        fd_set readfds;
-        struct timeval timeout;
         int n, i, state, err;
+	int total = size;
+	char temp[MAX_SIZE];
 
-        while(1){
-                FD_ZERO(&readfds);
-                FD_SET(fd, &readfds);
-                timeout.tv_sec = 0;
-                timeout.tv_usec = MAX_IDLE_SECS;
-                state = select(fd+1, &readfds, NULL, NULL, &timeout);
-                if(state == -1){
-                        perror("recv_nonblock() select error : ");
-                        exit(0);
-                        break;
-                } else {
-                        err = errno;
-                        switch(err){
-                                case EAGAIN:
-                                default:
-                                        if(FD_ISSET(fd, &readfds)){
-                                                while((n = recv(fd, buffer, size, flags)) > 0){
-                                                        return n;
-                                              }
-                                        }
-                                        break;
-             			}
-		   }
-        }
+	while(1){
+		memset(temp, 0x00, MAX_SIZE);
+		n = recv(fd, temp, MAX_SIZE, flags);
+		
+		if( n > 0 ){
+			total -= n;
+			strcat(buffer, temp);
+		}
+	
+		if(total <= 0){
+			return size;
+		}
+	}
         return n;
 }
 
 
 int send_nonblock(int fd, void* data, size_t size, int flags){
-/*    fd_set sendfds;
-	struct timeval timeout;
-	int n, i, err, state;
-
-	while(1){
-		FD_ZERO(&sendfds);
-		FD_SET(fd, &sendfds);
-		timeout.tv_sec = 0;
-		timeout.tv_usec = MAX_IDLE_SECS;
-		state = select(fd+1, NULL, &sendfds, NULL, &timeout);
-		if(state == -1){
-			perror("send_nonblock() select error : ");
-			exit(0);
-			break;
-		} else {
-			err = errno;
-			switch(err){
-				//			case EWOULDBLOCK:
-				case EAGAIN:
-				default:
-					if(FD_ISSET(fd, &sendfds)){
-						while((n = send(fd, data, size, flags)) > 0){
-							return n;
-						}
-					}
-					break;
-			}
+	int n = 0;
+	
+	while(n < size){
+		int c = send(fd, data, size, flags);
+		if(c < 0){
+			perror("send_nonblock error : ");
+			return -1;
 		}
-	}
-*/
-	int n = send(fd, data, size, flags);
-	if(n < 0){
-		perror("send_nonblock error : ");
-		return -1;
-
+		n += c;
 	}
 
 	return n;

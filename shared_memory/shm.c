@@ -1,5 +1,4 @@
-
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -48,35 +47,33 @@ int main(int argc, char **argv){
 		return 1;
 	}
 	
-	shared_memory = shmat(shmid, (void *)0, 0);
-	if(shared_memory == (void *)-1){
+	mem = shmat(shmid, (void *)0, 0);
+	if(mem == (void *)-1){
 		perror("shmat failed");
 		return -1;
 	}
 
-	mem = (Shm *) shared_memory;
-	mem = (Shm *)malloc(sizeof(Shm) * cnt);
-	
+	memset((char *)mem, 0, (sizeof(Shm) * cnt));
 	for(i=0; i<cnt; i++){
 		mem[i].len = items[i].len;
 		strcpy(mem[i].str, items[i].str);
 	}
-	free(items);
+	
 
 	for(i=0; i<cnt; i++){
-	//	printf("len[%d] : %d\n", (i+1), mem[i].len);
-		printf("str[%d] : %s\n", (i+1), mem[i].str);
+		printf("len[%d] : %d\n", (i+1), mem[i].len);
+	//	printf("str[%d] : %s\n", (i+1), mem[i].str);
 	}
 
 	
-	if(-1 == shmdt(shared_memory)){
-		printf("°øÀ¯ ¸Þ¸ð¸® ºÐ¸® ½ÇÆÐ\n");
+	if(-1 == shmdt(mem)){
+		printf("ê³µìœ  ë©”ëª¨ë¦¬ ë¶„ë¦¬ ì‹¤íŒ¨\n");
 		return -1;
 	}
 
 /*
 	if( -1 == shmctl(shmid, IPC_RMID, 0)){
-		printf("°øÀ¯ ¸Þ¸ð¸® Á¦°Å ½ÇÆÐ \n");
+		printf("ê³µìœ  ë©”ëª¨ë¦¬ ì œê±° ì‹¤íŒ¨ \n");
 		return -1;
 	}
 */	return 0;
