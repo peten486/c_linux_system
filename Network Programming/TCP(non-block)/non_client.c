@@ -233,26 +233,21 @@ int conn(){
 	while(n != 0){
 		n = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
-		printf("dddd\n");
-
-
-
 		if( n == 0 ){
 			return sockfd;
 		} else if(n < 0){
-			printf("status : %i\n", n);
-			if( errno == EINPROGRESS){
-				fd_set w_fd, all_fd;
+//			printf("status : %i\n", n);
+			if( errno == EINPROGRESS ){
+				fd_set w_fd;
 	
 				FD_ZERO(&w_fd);
 				FD_SET(sockfd, &w_fd);
-				all_fd = w_fd; 
 		
 				tval.tv_sec = 0; 
 				tval.tv_usec = MAX_IDLE_SECS;
 		
-				n = select(sockfd+1, NULL, &all_fd, NULL, &tval);
-				printf("retVal : %i\n", n);
+				n = select(sockfd+1, NULL, &w_fd, NULL, &tval);
+//				printf("retVal : %i\n", n);
 
 				if( n == 1 ){
 					int so_error;
@@ -266,7 +261,6 @@ int conn(){
 				}
 			}
 		}
-		printf("err\n");
 	}
 
 	close(sockfd);
