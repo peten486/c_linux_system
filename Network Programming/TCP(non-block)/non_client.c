@@ -19,7 +19,6 @@
 #include <fcntl.h>
 
 #define MAX_SIZE 100
-#define PORT 5400
 #define MAX_IDLE_SECS 500000000
 
 
@@ -27,8 +26,8 @@ int set_nonblock(int sockfd);
 int is_nonblock(int sockfd);
 int send_nonblock(int fd, void* data, size_t size, int flags);
 int recv_nonblock(int fd, void* buffer, size_t size, int flags);
-int connect_nonblock();
-int conn();
+int connect_nonblock(char* my_ip, char* my_port);
+int conn(char* my_ip, char* my_port);
 
 int main(int argc,char **argv){
 	int sockfd, n, errno;
@@ -36,8 +35,13 @@ int main(int argc,char **argv){
 	char recvline[MAX_SIZE];
 	char len[MAX_SIZE];
 
-//	sockfd = connect_nonblock();
-	sockfd = conn();
+	if(argc != 3){
+		printf("usage : %s <ip> <port>\n", argv[0]);
+		exit(1);
+	}
+
+	sockfd = connect_nonblock(argv[1], argv[2]);
+//	sockfd = conn();
 	if(sockfd < 0 || is_nonblock(sockfd))
 		return 0;
 
@@ -141,7 +145,7 @@ int send_nonblock(int fd, void* data, size_t size, int flags){
 }
 
 
-int connect_nonblock(){
+int connect_nonblock(char* my_ip, char* my_port){
 	int sockfd, flags, n, error, i;
 	socklen_t len;
 	fd_set rset, wset;
@@ -156,8 +160,8 @@ int connect_nonblock(){
 	bzero(&servaddr, sizeof servaddr);
 
 	servaddr.sin_family=AF_INET;
-	servaddr.sin_port=htons(PORT);
-	inet_pton(AF_INET,"10.10.3.180",&(servaddr.sin_addr));
+	servaddr.sin_port=htons(atoi(my_port));
+	inet_pton(AF_INET, my_ip, &(servaddr.sin_addr));
 
 	// nonblock set
 	if(set_nonblock(sockfd) == -1){
@@ -204,7 +208,7 @@ done:
 	return sockfd;
 }
 
-int conn(){
+int conn(char* my_ip, char* my_port){
 	int sockfd, flags, n, error, i;
 	socklen_t len;
 	fd_set rset, wset;
@@ -219,8 +223,8 @@ int conn(){
 	bzero(&servaddr, sizeof servaddr);
 
 	servaddr.sin_family=AF_INET;
-	servaddr.sin_port=htons(PORT);
-	inet_pton(AF_INET,"10.10.3.180",&(servaddr.sin_addr));
+	servaddr.sin_port=htons(atoi(my_port));
+	inet_pton(AF_INET,my_ip,&(servaddr.sin_addr));
 
 	// nonblock set
 	if(set_nonblock(sockfd) == -1){

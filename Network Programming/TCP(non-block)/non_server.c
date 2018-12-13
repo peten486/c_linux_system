@@ -16,7 +16,6 @@
 #include <fcntl.h>
 
 #define MAX_SIZE 100
-#define PORT 5400
 #define P_SIZE 4
 #define MAX_IDLE_SECS 500000
 #define FD_SIZE 10
@@ -26,7 +25,7 @@ int is_nonblock(int sockfd);
 int send_nonblock(int fd, void* data, size_t size, int flags);
 int recv_nonblock(int fd, void* buffer, size_t size, int flags);
 
-int main(){
+int main(int argc,char **argv){
 	char str[MAX_SIZE];
 	int listen_fd, comm_fd, sockfd;
 
@@ -40,6 +39,11 @@ int main(){
 	int fd_num, maxfd, maxi;
 	struct timeval timeout;
 	
+
+	if(argc != 2){
+		printf("%s <port>\n", argv[0]);
+		exit(1);
+	}
 
 	for(i=0; i<FD_SIZE; i++){
 		client_list[i] = -1;
@@ -60,7 +64,7 @@ int main(){
 	bzero( &servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(PORT);
+	servaddr.sin_port = htons(atoi(argv[1]));
 	
 	bind(listen_fd, (struct sockaddr *) &servaddr, sizeof(servaddr));
 	listen(listen_fd, 10);
