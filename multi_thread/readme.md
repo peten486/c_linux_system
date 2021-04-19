@@ -66,4 +66,5 @@ __multi_thread__ : 멀티 스레드, 하나의 프로세스 내에서 둘 이상
 > 한정된 자원을 여러 스레드가 사용하려고 할 때 접근을 제한한다.
 > 다중 스레드 간 공유 자원 접근 순서를 제어하고 공유 자원의 수와 접근 스레드 수에 따라서 보다 유연하게 공유영역으로의 접근을 제어한다.
 
-![세마포어 예제 프로그램 결과](./https://github.com/peten486/c_linux_system/blob/master/multi_thread/ex%20실행결과.png )
+![세마포어 예제 프로그램 결과](https://user-images.githubusercontent.com/28287323/115248355-9397d400-a162-11eb-8bd1-44346fb4c369.png )
+
